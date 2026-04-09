@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pedidos — Bagaceira</title>
+<link rel="stylesheet" href="app.css"/>
+</head>
+<body data-accent="bagaceira">
+
+<header class="app-header">
+  <div class="header-top">
+    <a href="index.html" class="back-link">← voltar</a>
+    <span class="restaurant-badge">BGC · SP</span>
+  </div>
+  <h1>Bagaceira</h1>
+  <p>Controle de estoque &amp; pedidos</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-tab="pedido" onclick="switchTab('pedido')">Pedido</div>
+  <div class="tab" data-tab="adicionar" onclick="switchTab('adicionar')">+ Produto</div>
+  <div class="tab" data-tab="resumo" onclick="switchTab('resumo')">Resumo R$</div>
+</div>
+
+<div class="main">
+
+  <div id="tab-pedido" class="section active">
+    <div class="search-wrap">
+      <input type="text" id="search" placeholder="Buscar produto..."/>
+      <button class="btn-voz" id="btn-voz" title="Iniciar entrada por voz" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+        <span class="btn-voz-label">Voz</span>
+      </button>
+    </div>
+    <div class="voz-status" id="voz-status" style="display:none"></div>
+    <div class="voz-interim" id="voz-interim"></div>
+    <div class="voz-fila" id="voz-fila" style="display:none"></div>
+    <div id="lista"></div>
+  </div>
+
+  <div id="tab-adicionar" class="section">
+    <div class="add-form">
+      <h3>Cadastrar novo produto</h3>
+      <div class="form-row form-2">
+        <div class="field"><label>Nome do produto</label><input type="text" id="new-nome" placeholder="ex: Polvo"/></div>
+        <div class="field"><label>Categoria existente</label><select id="new-cat"></select></div>
+      </div>
+      <div class="form-row form-2">
+        <div class="field"><label>Estoque atual</label><input type="number" id="new-qtd" min="0" step="0.1" placeholder="0"/></div>
+        <div class="field"><label>Unidade de uso</label>
+          <select id="new-un"><option>kg</option><option>L</option><option>un</option><option>pct</option><option>pp</option><option>cx</option><option>ml</option><option>g</option></select>
+        </div>
+      </div>
+
+      <div class="conv-box">
+        <div class="conv-title">💱 Conversor de embalagem</div>
+        <div class="conv-hint">Informe quantas unidades comprou, o volume/peso de cada uma, e em qual unidade quer o custo.</div>
+
+        <div class="form-row form-3">
+          <div class="field">
+            <label>Qtd de embalagens compradas</label>
+            <input type="number" id="conv-qtd-cx" min="0" step="1" placeholder="ex: 6" oninput="calcConv()"/>
+          </div>
+          <div class="field">
+            <label>Volume/peso de cada embalagem</label>
+            <input type="number" id="conv-vol-emb" min="0" step="0.001" placeholder="ex: 750" oninput="calcConv()"/>
+          </div>
+          <div class="field">
+            <label>Unidade da embalagem</label>
+            <input type="text" id="conv-un-emb" placeholder="L, ml, kg, g, un..." oninput="calcConv()"/>
+          </div>
+        </div>
+
+        <div class="form-row form-3">
+          <div class="field">
+            <label>Preço total pago (R$)</label>
+            <input type="number" id="conv-preco" min="0" step="0.01" placeholder="ex: 89,90" oninput="calcConv()"/>
+          </div>
+
+          <div class="field conv-result-field">
+            <label>Custo por unidade de uso</label>
+            <div class="conv-result" id="conv-result">
+              <span class="conv-valor" id="conv-valor">—</span>
+              <button class="conv-apply" onclick="aplicarConv()">usar →</button>
+            </div>
+          </div>
+        </div>
+        <div class="conv-formula-line" id="conv-formula"></div>
+      </div>
+
+      <div class="form-row form-2">
+        <div class="field"><label>Custo R$ / unidade de uso <span style="font-size:10px;opacity:.6">(ou preencha o conversor acima)</span></label>
+          <input class="highlight" type="number" id="new-custo" min="0" step="0.0001" placeholder="0,0000"/>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="form-row form-2">
+        <div class="field"><label>Ou nova categoria</label><input type="text" id="new-cat-custom" placeholder="ex: Hortifruti"/></div>
+        <div class="field"><label>Emoji</label><input type="text" id="new-emoji" placeholder="🥬" maxlength="2"/></div>
+      </div>
+      <button class="btn-primary" onclick="adicionarProduto()">Adicionar produto</button>
+    </div>
+  </div>
+
+  <div id="tab-resumo" class="section">
+    <p class="resumo-hint">Custo unitário × estoque atual. Itens sem custo não entram no total.</p>
+    <div class="resumo-cards" id="resumo-geral"></div>
+    <div id="resumo-cats"></div>
+  </div>
+
+</div>
+
+<div class="bottom-bar">
+  <button class="btn-whatsapp" onclick="exportar()">
+    <svg class="wz-icon" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+    Exportar para WhatsApp
+  </button>
+  <button class="btn-clear" onclick="limpar()">limpar pedidos</button>
+  <button class="btn-excel" onclick="exportarExcel()">↓ exportar inventário (.csv)</button>
+</div>
+
+<div class="toast" id="toast">Mensagem copiada! Cole no WhatsApp.</div>
+
+<script src="base.js"></script>
+<script>
+  initApp({
+    restaurante: "Bagaceira",
+    catalogo: buildCatalog([
+    { cat:"Bebidas",emoji:"🍺",items:[
+      {nome:"Cachaça",un:"un",custo:null},{nome:"Cerveja long neck",un:"cx",custo:null},
+      {nome:"Vinho tinto",un:"un",custo:null},{nome:"Vinho branco",un:"un",custo:null},
+      {nome:"Refrigerante lata",un:"cx",custo:null},{nome:"Água mineral",un:"cx",custo:null},
+    ]},
+    { cat:"Hortifruti",emoji:"🥬",items:[
+      {nome:"Limão taiti",un:"kg",custo:null},{nome:"Laranja",un:"kg",custo:null},
+      {nome:"Abacaxi",un:"un",custo:null},{nome:"Maracujá",un:"kg",custo:null},
+      {nome:"Coco",un:"un",custo:null},{nome:"Coentro",un:"maço",custo:null},
+      {nome:"Alho",un:"kg",custo:null},{nome:"Cebola",un:"kg",custo:null},
+    ]},
+  ])
+  });
+</script>
+</body>
+</html>
