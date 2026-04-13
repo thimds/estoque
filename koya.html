@@ -51,11 +51,12 @@
         <div class="field"><label>Nome do produto</label><input type="text" id="new-nome" placeholder="ex: Polvo"/></div>
         <div class="field"><label>Categoria existente</label><select id="new-cat"></select></div>
       </div>
-      <div class="form-row form-2">
+      <div class="form-row form-4x">
         <div class="field"><label>Estoque atual</label><input type="number" id="new-qtd" min="0" step="0.1" placeholder="0"/></div>
         <div class="field"><label>Unidade de uso</label>
           <select id="new-un"><option>kg</option><option>L</option><option>un</option><option>pct</option><option>pp</option><option>cx</option><option>ml</option><option>g</option></select>
         </div>
+        <div class="field"><label>Estoque mínimo</label><input type="number" id="new-min" min="0" step="0.1" placeholder="0"/></div>
       </div>
 
       <div class="conv-box">
@@ -110,9 +111,23 @@
   </div>
 
   <div id="tab-resumo" class="section">
-    <p class="resumo-hint">Custo unitário × estoque atual. Itens sem custo não entram no total.</p>
     <div class="resumo-cards" id="resumo-geral"></div>
-    <div id="resumo-cats"></div>
+    <div class="dashboard-section">
+      <div class="dash-title">Alertas de estoque mínimo</div>
+      <div id="resumo-alertas"></div>
+    </div>
+    <div class="dashboard-section">
+      <div class="dash-title">Estoque por categoria (R$)</div>
+      <canvas id="chart-cats" height="220"></canvas>
+    </div>
+    <div class="dashboard-section">
+      <div class="dash-title">Top 10 itens por valor</div>
+      <canvas id="chart-top" height="260"></canvas>
+    </div>
+    <div class="dashboard-section">
+      <div class="dash-title">Detalhamento por categoria</div>
+      <div id="resumo-cats"></div>
+    </div>
   </div>
 
 </div>
@@ -128,6 +143,7 @@
 
 <div class="toast" id="toast">Mensagem copiada! Cole no WhatsApp.</div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="base.js"></script>
 <script>
   initApp({

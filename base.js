@@ -414,6 +414,12 @@ function calcLinha(inp) {
 
 
 // Funções globais de atualização de estado — chamadas pelos inputs via data-nome
+function atualizarMin(inp) {
+  var n = inp.dataset.nome;
+  if (!n) return;
+  if (inp.value === '') delete window._MIN_[n]; else window._MIN_[n] = inp.value;
+  window._save_();
+}
 function atualizarEst(inp) {
   var n = inp.dataset.nome;
   if (!n) return;
@@ -440,11 +446,11 @@ function initApp(config) {
   var STORE_KEY = 'ped_' + restaurante.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
   // estado interno — fonte da verdade
-  var _EST = {}, _PED = {}, _CUSTO = {}, _DELETADOS = {};
+  var _EST = {}, _PED = {}, _CUSTO = {}, _MIN = {}, _DELETADOS = {}, _CATS_CUSTOM = [];
 
   function saveLocal() {
     // persiste apenas os objetos internos — nunca lê do DOM
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, min: _MIN, del: _DELETADOS, cats: _CATS_CUSTOM })); } catch(e) {}
   }
 
   function loadLocal() {
@@ -452,10 +458,22 @@ function initApp(config) {
       var raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
       // suporta formato antigo (chave=nome) e novo (est/ped/custo separados)
       if (raw.est || raw.ped || raw.custo) {
-        _EST      = raw.est   || {};
-        _PED      = raw.ped   || {};
-        _CUSTO    = raw.custo || {};
-        _DELETADOS = raw.del  || {};
+        _EST        = raw.est   || {};
+        _PED        = raw.ped   || {};
+        _CUSTO      = raw.custo || {};
+        _DELETADOS  = raw.del   || {};
+        _MIN        = raw.min   || {};
+        _CATS_CUSTOM = raw.cats || [];
+        // restaura categorias e itens customizados no CATS
+        _CATS_CUSTOM.forEach(function(cc) {
+          var cat = CATS.find(function(c) { return c.cat === cc.cat; });
+          if (!cat) { cat = { cat: cc.cat, emoji: cc.emoji || '📦', items: [] }; CATS.push(cat); }
+          (cc.items || []).forEach(function(item) {
+            if (!cat.items.find(function(i) { return i.nome === item.nome; })) {
+              cat.items.push(item);
+            }
+          });
+        });
       } else {
         // formato legado: { "Atum": { est, ped, custo } } — sem del
         Object.keys(raw).forEach(function(k) {
@@ -469,10 +487,12 @@ function initApp(config) {
 
   loadLocal(); // popula _EST/_PED/_CUSTO do localStorage
   // expõe objetos internos globalmente para os oninputs inline
-  window._EST_   = _EST;
-  window._PED_   = _PED;
-  window._CUSTO_ = _CUSTO;
-  window._save_  = saveLocal;
+  window._EST_         = _EST;
+  window._PED_         = _PED;
+  window._CUSTO_       = _CUSTO;
+  window._CATS_CUSTOM_ = _CATS_CUSTOM;
+  window._MIN_ = _MIN;
+  window._save_        = saveLocal;
   window.saveLocal_ = saveLocal;
 
   window.switchTab = function(t) {
@@ -509,9 +529,20 @@ function initApp(config) {
     var qtdInicial = document.getElementById('new-qtd') ? document.getElementById('new-qtd').value : '';
     if (qtdInicial !== '') _EST[nome]   = qtdInicial;
     if (custoVal   !== '') _CUSTO[nome] = custoVal;
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
+    var minVal = document.getElementById('new-min') ? document.getElementById('new-min').value : '';
+    if (minVal !== '') _MIN[nome] = minVal;
+    // persiste categoria e item em _CATS_CUSTOM para sobreviver ao reload
+    var ccExist = _CATS_CUSTOM.find(function(c) { return c.cat === catNome; });
+    if (!ccExist) {
+      ccExist = { cat: catNome, emoji: emoji || cat.emoji || '📦', items: [] };
+      _CATS_CUSTOM.push(ccExist);
+    }
+    if (!ccExist.items.find(function(i) { return i.nome === nome; })) {
+      ccExist.items.push({ nome: nome, un: un, custo: custoVal !== '' ? parseFloat(custoVal) : null });
+    }
+    saveLocal();
 
-    ['new-nome','new-qtd','new-custo','new-cat-custom'].forEach(function(id) {
+    ['new-nome','new-qtd','new-custo','new-min','new-cat-custom'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
     });
     document.getElementById('new-emoji') && (document.getElementById('new-emoji').value = '');
@@ -526,7 +557,10 @@ function initApp(config) {
     _DELETADOS[catNome + '||' + nome] = 1;
     // limpa dados do item deletado
     delete _EST[nome]; delete _PED[nome]; delete _CUSTO[nome];
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
+    // remove de _CATS_CUSTOM também para não reaparecer no reload
+    var ccCat = _CATS_CUSTOM.find(function(c) { return c.cat === catNome; });
+    if (ccCat) ccCat.items = ccCat.items.filter(function(i) { return i.nome !== nome; });
+    saveLocal();
     window.render();
   };
 
@@ -671,6 +705,7 @@ function initApp(config) {
           '<div class="col-head">pedir</div>' +
           '<div class="col-head col-custo">custo/un</div>' +
           '<div class="col-head">total</div>' +
+          '<div class="col-head col-min">mínimo</div>' +
           '<div></div>' +
         '</div>';
 
@@ -689,8 +724,13 @@ function initApp(config) {
         var cn = cat.cat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         var nn = item.nome.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
 
+        var minV = _MIN[item.nome] !== undefined ? _MIN[item.nome] : '';
+        var estNum = parseFloat(estV) || 0;
+        var minNum = parseFloat(minV) || 0;
+        var alertClass = (minV !== '' && estNum < minNum) ? 'alert-min' : '';
+
         var row = document.createElement('div');
-        row.className = 'item-row';
+        row.className = 'item-row' + (alertClass ? ' row-alert' : '');
         row.innerHTML =
           '<div class="item-name">' + item.nome + '</div>' +
           '<div class="item-inputs">' +
@@ -719,6 +759,10 @@ function initApp(config) {
             '<span class="total-label">total em estoque</span>' +
             '<span class="total-cell ' + (tot > 0 ? 'has-val' : '') + '">' + (tot > 0 ? brl(tot) : '—') + '</span>' +
           '</div>' +
+          '<div class="min-cell ' + alertClass + '">' +
+            '<input class="min-inp" type="number" min="0" step="0.1" placeholder="—" value="' + minV + '" data-nome="' + nn + '" oninput="atualizarMin(this);">' +
+            (alertClass ? '<span class="min-alert-dot" title="Abaixo do mínimo!">!</span>' : '') +
+          '</div>' +
           '<div class="item-btns">' +
           '<button class="btn-edit" onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
           '<button class="btn-del"  onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
@@ -742,6 +786,42 @@ function initApp(config) {
   };
 
   window.renderResumo = function() {
+    // --- ALERTAS DE ESTOQUE MÍNIMO ---
+    var alertasEl = document.getElementById('resumo-alertas');
+    if (alertasEl) {
+      var alertas = [];
+      CATS.forEach(function(cat) {
+        cat.items.forEach(function(i) {
+          if (_DELETADOS[cat.cat + '||' + i.nome]) return;
+          var est = parseFloat(_EST[i.nome]) || 0;
+          var min = parseFloat(_MIN[i.nome]);
+          if (!isNaN(min) && min > 0 && est < min) {
+            alertas.push({ nome: i.nome, est: est, min: min, un: i.un, cat: cat.cat });
+          }
+        });
+      });
+      if (!alertas.length) {
+        alertasEl.innerHTML = '<div class="alerta-ok">✓ Todos os itens acima do estoque mínimo</div>';
+      } else {
+        alertasEl.innerHTML = alertas.map(function(a) {
+          var pct = Math.round((a.est / a.min) * 100);
+          return '<div class="alerta-item">' +
+            '<div class="alerta-info">' +
+              '<span class="alerta-nome">' + a.nome + '</span>' +
+              '<span class="alerta-cat">' + a.cat + '</span>' +
+            '</div>' +
+            '<div class="alerta-nums">' +
+              '<span class="alerta-est">' + a.est + a.un + '</span>' +
+              '<span class="alerta-sep">de</span>' +
+              '<span class="alerta-min">' + a.min + a.un + '</span>' +
+            '</div>' +
+            '<div class="alerta-bar-wrap"><div class="alerta-bar" style="width:' + Math.min(pct,100) + '%"></div></div>' +
+          '</div>';
+        }).join('');
+      }
+    }
+
+
     var totalGeral = 0, totalItens = 0, catData = [];
     document.querySelectorAll('.cat-block').forEach(function(block) {
       var catTitleEl = block.querySelector('.cat-title-left');
@@ -763,6 +843,44 @@ function initApp(config) {
       });
       if (sub > 0) catData.push({ cat: catNome, emoji: emoji, sub: sub, linhas: linhas });
     });
+
+    // --- GRÁFICOS ---
+    setTimeout(function() {
+      // Chart: valor por categoria
+      var ctxCats = document.getElementById('chart-cats');
+      if (ctxCats && window.Chart) {
+        if (ctxCats._chartInst) ctxCats._chartInst.destroy();
+        ctxCats._chartInst = new Chart(ctxCats, {
+          type: 'bar',
+          data: {
+            labels: catData.map(function(c){ return c.cat; }),
+            datasets: [{ data: catData.map(function(c){ return Math.round(c.sub*100)/100; }),
+              backgroundColor: '#1a3a2a', borderRadius: 6 }]
+          },
+          options: { plugins: { legend: { display: false } },
+            scales: { y: { ticks: { callback: function(v){ return 'R$'+v.toLocaleString('pt-BR'); } } } } }
+        });
+      }
+      // Chart: top 10 itens
+      var ctxTop = document.getElementById('chart-top');
+      if (ctxTop && window.Chart) {
+        var todasLinhas = [];
+        catData.forEach(function(c){ c.linhas.forEach(function(l){ todasLinhas.push(l); }); });
+        todasLinhas.sort(function(a,b){ return b.tot - a.tot; });
+        var top10 = todasLinhas.slice(0,10);
+        if (ctxTop._chartInst) ctxTop._chartInst.destroy();
+        ctxTop._chartInst = new Chart(ctxTop, {
+          type: 'bar',
+          data: {
+            labels: top10.map(function(i){ return i.nome; }),
+            datasets: [{ data: top10.map(function(i){ return Math.round(i.tot*100)/100; }),
+              backgroundColor: '#2D6A4F', borderRadius: 6 }]
+          },
+          options: { indexAxis: 'y', plugins: { legend: { display: false } },
+            scales: { x: { ticks: { callback: function(v){ return 'R$'+v.toLocaleString('pt-BR'); } } } } }
+        });
+      }
+    }, 50);
 
     document.getElementById('resumo-geral').innerHTML =
       '<div class="resumo-card"><div class="resumo-label">Valor total em estoque</div><div class="resumo-val resumo-total">' + brl(totalGeral) + '</div></div>' +
