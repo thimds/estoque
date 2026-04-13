@@ -369,6 +369,10 @@ function buildCatalog(extras) {
       cat.items = cat.items.filter(function(i) { return i.nome !== nome; });
     });
   });
+  // ordena itens de cada categoria alfabeticamente
+  cats.forEach(function(cat) {
+    cat.items.sort(function(a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); });
+  });
   return cats;
 }
 
@@ -465,9 +469,21 @@ function initApp(config) {
     if (!cat) { cat = { cat: catNome, emoji: emoji, items: [] }; CATS.push(cat); }
     if (cat.items.find(function(i) { return i.nome === nome; })) { alert('Produto já existe.'); return; }
     cat.items.push({ nome: nome, un: un, custo: custoVal !== '' ? parseFloat(custoVal) : null });
+
+    // salva estoque inicial e custo no localStorage imediatamente
+    var qtdInicial = document.getElementById('new-qtd') ? document.getElementById('new-qtd').value : '';
+    var saved = loadLocal();
+    saved[nome] = {
+      est:   qtdInicial !== '' ? qtdInicial : '',
+      ped:   '',
+      custo: custoVal !== '' ? custoVal : ''
+    };
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e) {}
+
     ['new-nome','new-qtd','new-custo','new-cat-custom'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
     });
+    document.getElementById('new-emoji') && (document.getElementById('new-emoji').value = '');
     window.switchTab('pedido');
     window.render();
   };
@@ -476,6 +492,113 @@ function initApp(config) {
     var cat = CATS.find(function(c) { return c.cat === catNome; });
     if (cat) cat.items = cat.items.filter(function(i) { return i.nome !== nome; });
     window.render();
+  };
+
+  window.editarItem = function(catNome, nomeAtual) {
+    // fecha qualquer edição aberta
+    document.querySelectorAll('.edit-panel').forEach(function(p){ p.remove(); });
+
+    var cat = CATS.find(function(c){ return c.cat === catNome; });
+    if (!cat) return;
+    var item = cat.items.find(function(i){ return i.nome === nomeAtual; });
+    if (!item) return;
+
+    // encontra a row do item no DOM
+    var rows = document.querySelectorAll('.item-row');
+    var targetRow = null;
+    rows.forEach(function(r){
+      var n = r.querySelector('.item-name');
+      if (n && n.textContent.trim() === nomeAtual) targetRow = r;
+    });
+    if (!targetRow) return;
+
+    var panel = document.createElement('div');
+    panel.className = 'edit-panel';
+    panel.innerHTML =
+      '<div class="edit-panel-title">Editar produto</div>' +
+      '<div class="edit-grid">' +
+        '<div class="field">' +
+          '<label>Nome</label>' +
+          '<input type="text" id="edit-nome" value="' + item.nome.replace(/"/g,'&quot;') + '"/>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Unidade</label>' +
+          '<select id="edit-un">' +
+            ['kg','L','un','pct','pp','cx','ml','g'].map(function(u){
+              return '<option' + (u === item.un ? ' selected' : '') + '>' + u + '</option>';
+            }).join('') +
+          '</select>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Custo R$/un</label>' +
+          '<input type="number" id="edit-custo" min="0" step="0.0001" value="' + (item.custo || '') + '"/>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>Categoria</label>' +
+          '<select id="edit-cat">' +
+            CATS.map(function(c){
+              return '<option value="' + c.cat.replace(/"/g,'&quot;') + '"' + (c.cat === catNome ? ' selected' : '') + '>' + c.emoji + ' ' + c.cat + '</option>';
+            }).join('') +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+      '<div class="edit-actions">' +
+        '<button class="edit-btn-save" onclick="salvarEdicao('' + catNome.replace(/'/g,"\'") + '','' + nomeAtual.replace(/'/g,"\'") + '')">✓ Salvar</button>' +
+        '<button class="edit-btn-cancel" onclick="cancelarEdicao()">Cancelar</button>' +
+      '</div>';
+
+    targetRow.after(panel);
+    document.getElementById('edit-nome').focus();
+  };
+
+  window.salvarEdicao = function(catNomeAntigo, nomeAntigo) {
+    var novoNome  = (document.getElementById('edit-nome').value || '').trim();
+    var novaUn    = document.getElementById('edit-un').value;
+    var novoCusto = document.getElementById('edit-custo').value;
+    var novaCat   = document.getElementById('edit-cat').value;
+
+    if (!novoNome) { alert('Informe o nome.'); return; }
+
+    // verifica duplicado (ignora o próprio item)
+    var nomeNorm = novoNome.toLowerCase();
+    var dup = null;
+    CATS.forEach(function(c){
+      c.items.forEach(function(i){
+        if (i.nome.toLowerCase() === nomeNorm && i.nome !== nomeAntigo) dup = c.cat;
+      });
+    });
+    if (dup) { alert('Produto "' + novoNome + '" já existe em "' + dup + '".'); return; }
+
+    // recupera dados salvos do item antigo
+    var saved = loadLocal();
+    var sv = saved[nomeAntigo] || {};
+
+    // remove da categoria antiga
+    var catAntiga = CATS.find(function(c){ return c.cat === catNomeAntigo; });
+    if (catAntiga) catAntiga.items = catAntiga.items.filter(function(i){ return i.nome !== nomeAntigo; });
+
+    // adiciona na categoria nova (ou mesma) com dados atualizados
+    var catNova = CATS.find(function(c){ return c.cat === novaCat; });
+    if (!catNova) { catNova = { cat: novaCat, emoji: '📦', items: [] }; CATS.push(catNova); }
+    catNova.items.push({
+      nome:  novoNome,
+      un:    novaUn,
+      custo: novoCusto !== '' ? parseFloat(novoCusto) : null
+    });
+
+    // migra dados salvos para o novo nome
+    if (novoNome !== nomeAntigo) {
+      saved[novoNome] = sv;
+      delete saved[nomeAntigo];
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
+    }
+
+    document.querySelectorAll('.edit-panel').forEach(function(p){ p.remove(); });
+    window.render();
+  };
+
+  window.cancelarEdicao = function() {
+    document.querySelectorAll('.edit-panel').forEach(function(p){ p.remove(); });
   };
 
   window.limpar = function() {
@@ -493,6 +616,8 @@ function initApp(config) {
       var items = cat.items.filter(function(i) {
         return !fl || i.nome.toLowerCase().includes(fl) || cat.cat.toLowerCase().includes(fl);
       });
+      // ordena alfabeticamente
+      items.sort(function(a, b) { return a.nome.localeCompare(b.nome, 'pt-BR'); });
       if (!items.length) return;
 
       var b = document.createElement('div');
@@ -558,7 +683,10 @@ function initApp(config) {
             '<span class="total-label">total em estoque</span>' +
             '<span class="total-cell ' + (tot > 0 ? 'has-val' : '') + '">' + (tot > 0 ? brl(tot) : '—') + '</span>' +
           '</div>' +
-          '<button class="btn-del" onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>';
+          '<div class="item-btns">' +
+          '<button class="btn-edit" onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
+          '<button class="btn-del"  onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
+        '</div>';
         b.appendChild(row);
       });
 
