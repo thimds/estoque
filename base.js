@@ -440,6 +440,79 @@ function atualizarCusto(inp) {
 }
 
 
+// Renderiza os gráficos do dashboard — chamada após dados estarem prontos e canvas visível
+function desenharGraficos() {
+  if (!window.Chart) {
+    // Chart.js ainda não carregou — tenta de novo em 300ms
+    setTimeout(desenharGraficos, 300);
+    return;
+  }
+  var cd = window._chartData;
+  if (!cd) return;
+
+  requestAnimationFrame(function() {
+    // Gráfico 1: valor por categoria
+    var ctxCats = document.getElementById('chart-cats');
+    if (ctxCats && cd.catData && cd.catData.length) {
+      if (ctxCats._ci) { try { ctxCats._ci.destroy(); } catch(e){} }
+      ctxCats.style.display = 'block';
+      ctxCats._ci = new Chart(ctxCats, {
+        type: 'bar',
+        data: {
+          labels: cd.catData.map(function(c){ return c.cat; }),
+          datasets: [{
+            data: cd.catData.map(function(c){ return Math.round(c.sub * 100) / 100; }),
+            backgroundColor: '#1a3a2a',
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { ticks: { callback: function(v){ return 'R$ ' + v.toLocaleString('pt-BR'); } } },
+            x: { ticks: { maxRotation: 30, font: { size: 10 } } }
+          }
+        }
+      });
+    }
+
+    // Gráfico 2: top 10 itens por valor
+    var ctxTop = document.getElementById('chart-top');
+    if (ctxTop && cd.catData) {
+      var todas = [];
+      cd.catData.forEach(function(c){ c.linhas.forEach(function(l){ todas.push(l); }); });
+      todas.sort(function(a, b){ return b.tot - a.tot; });
+      var top = todas.slice(0, 10);
+      if (top.length) {
+        if (ctxTop._ci) { try { ctxTop._ci.destroy(); } catch(e){} }
+        ctxTop.style.display = 'block';
+        ctxTop._ci = new Chart(ctxTop, {
+          type: 'bar',
+          data: {
+            labels: top.map(function(i){ return i.nome; }),
+            datasets: [{
+              data: top.map(function(i){ return Math.round(i.tot * 100) / 100; }),
+              backgroundColor: '#2D6A4F',
+              borderRadius: 6
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { ticks: { callback: function(v){ return 'R$ ' + v.toLocaleString('pt-BR'); } } },
+              y: { ticks: { font: { size: 11 } } }
+            }
+          }
+        });
+      }
+    }
+  });
+}
+
+
 function initApp(config) {
   var restaurante = config.restaurante;
   var CATS = config.catalogo;
@@ -502,7 +575,7 @@ function initApp(config) {
     document.querySelectorAll('.section').forEach(function(el) { el.classList.remove('active'); });
     document.getElementById('tab-' + t).classList.add('active');
     if (t === 'adicionar') populateCatSelect();
-    if (t === 'resumo') renderResumo();
+    if (t === 'resumo') { renderResumo(); setTimeout(desenharGraficos, 100); }
   };
 
   function populateCatSelect() {
@@ -845,42 +918,9 @@ function initApp(config) {
     });
 
     // --- GRÁFICOS ---
-    setTimeout(function() {
-      // Chart: valor por categoria
-      var ctxCats = document.getElementById('chart-cats');
-      if (ctxCats && window.Chart) {
-        if (ctxCats._chartInst) ctxCats._chartInst.destroy();
-        ctxCats._chartInst = new Chart(ctxCats, {
-          type: 'bar',
-          data: {
-            labels: catData.map(function(c){ return c.cat; }),
-            datasets: [{ data: catData.map(function(c){ return Math.round(c.sub*100)/100; }),
-              backgroundColor: '#1a3a2a', borderRadius: 6 }]
-          },
-          options: { plugins: { legend: { display: false } },
-            scales: { y: { ticks: { callback: function(v){ return 'R$'+v.toLocaleString('pt-BR'); } } } } }
-        });
-      }
-      // Chart: top 10 itens
-      var ctxTop = document.getElementById('chart-top');
-      if (ctxTop && window.Chart) {
-        var todasLinhas = [];
-        catData.forEach(function(c){ c.linhas.forEach(function(l){ todasLinhas.push(l); }); });
-        todasLinhas.sort(function(a,b){ return b.tot - a.tot; });
-        var top10 = todasLinhas.slice(0,10);
-        if (ctxTop._chartInst) ctxTop._chartInst.destroy();
-        ctxTop._chartInst = new Chart(ctxTop, {
-          type: 'bar',
-          data: {
-            labels: top10.map(function(i){ return i.nome; }),
-            datasets: [{ data: top10.map(function(i){ return Math.round(i.tot*100)/100; }),
-              backgroundColor: '#2D6A4F', borderRadius: 6 }]
-          },
-          options: { indexAxis: 'y', plugins: { legend: { display: false } },
-            scales: { x: { ticks: { callback: function(v){ return 'R$'+v.toLocaleString('pt-BR'); } } } } }
-        });
-      }
-    }, 50);
+    // guarda dados para renderizar depois que o canvas estiver visível
+    window._chartData = { catData: catData };
+    desenharGraficos();
 
     document.getElementById('resumo-geral').innerHTML =
       '<div class="resumo-card"><div class="resumo-label">Valor total em estoque</div><div class="resumo-val resumo-total">' + brl(totalGeral) + '</div></div>' +
