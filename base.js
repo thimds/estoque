@@ -543,7 +543,7 @@ function initApp(config) {
         '</div>' +
       '</div>' +
       '<div class="edit-actions">' +
-        '<button class="edit-btn-save" onclick="salvarEdicao('' + catNome.replace(/'/g,"\'") + '','' + nomeAtual.replace(/'/g,"\'") + '')">✓ Salvar</button>' +
+        '<button class="edit-btn-save" onclick="salvarEdicao(\'' + catNome.replace(/'/g,"\\'") + '\',\'' + nomeAtual.replace(/'/g,"\\'") + '\')">✓ Salvar</button>' +
         '<button class="edit-btn-cancel" onclick="cancelarEdicao()">Cancelar</button>' +
       '</div>';
 
