@@ -412,27 +412,39 @@ function calcLinha(inp) {
   }
 }
 
+
+// Funções globais de atualização de estado — chamadas pelos inputs via data-nome
+function atualizarEst(inp) {
+  var n = inp.dataset.nome;
+  if (!n) return;
+  if (inp.value === '') delete window._EST_[n]; else window._EST_[n] = inp.value;
+  window._save_();
+}
+function atualizarPed(inp) {
+  var n = inp.dataset.nome;
+  if (!n) return;
+  if (inp.value === '') delete window._PED_[n]; else window._PED_[n] = inp.value;
+  window._save_();
+}
+function atualizarCusto(inp) {
+  var n = inp.dataset.nome;
+  if (!n) return;
+  if (inp.value === '') delete window._CUSTO_[n]; else window._CUSTO_[n] = inp.value;
+  window._save_();
+}
+
+
 function initApp(config) {
   var restaurante = config.restaurante;
   var CATS = config.catalogo;
   var STORE_KEY = 'ped_' + restaurante.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
   // estado interno — fonte da verdade
-  var _EST = {}, _PED = {}, _CUSTO = {};
+  var _EST = {}, _PED = {}, _CUSTO = {}, _DELETADOS = {};
 
   function saveLocal() {
-    // sincroniza do DOM para os objetos internos antes de salvar
-    document.querySelectorAll('.item-row').forEach(function(row) {
-      var nomeEl = row.querySelector('.item-name');
-      if (!nomeEl) return;
-      var ins = row.querySelectorAll('input[type=number]');
-      if (ins.length < 3) return;
-      var key = nomeEl.textContent.trim();
-      if (ins[0].value !== '') _EST[key]   = ins[0].value;
-      if (ins[1].value !== '') _PED[key]   = ins[1].value;
-      if (ins[2].value !== '') _CUSTO[key] = ins[2].value;
-    });
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO })); } catch(e) {}
+    // persiste apenas os objetos internos — nunca lê do DOM
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
   }
 
   function loadLocal() {
@@ -440,11 +452,12 @@ function initApp(config) {
       var raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
       // suporta formato antigo (chave=nome) e novo (est/ped/custo separados)
       if (raw.est || raw.ped || raw.custo) {
-        _EST   = raw.est   || {};
-        _PED   = raw.ped   || {};
-        _CUSTO = raw.custo || {};
+        _EST      = raw.est   || {};
+        _PED      = raw.ped   || {};
+        _CUSTO    = raw.custo || {};
+        _DELETADOS = raw.del  || {};
       } else {
-        // formato legado: { "Atum": { est, ped, custo } }
+        // formato legado: { "Atum": { est, ped, custo } } — sem del
         Object.keys(raw).forEach(function(k) {
           if (raw[k].est   !== undefined && raw[k].est   !== '') _EST[k]   = raw[k].est;
           if (raw[k].ped   !== undefined && raw[k].ped   !== '') _PED[k]   = raw[k].ped;
@@ -455,6 +468,11 @@ function initApp(config) {
   }
 
   loadLocal(); // popula _EST/_PED/_CUSTO do localStorage
+  // expõe objetos internos globalmente para os oninputs inline
+  window._EST_   = _EST;
+  window._PED_   = _PED;
+  window._CUSTO_ = _CUSTO;
+  window._save_  = saveLocal;
   window.saveLocal_ = saveLocal;
 
   window.switchTab = function(t) {
@@ -491,7 +509,7 @@ function initApp(config) {
     var qtdInicial = document.getElementById('new-qtd') ? document.getElementById('new-qtd').value : '';
     if (qtdInicial !== '') _EST[nome]   = qtdInicial;
     if (custoVal   !== '') _CUSTO[nome] = custoVal;
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO })); } catch(e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
 
     ['new-nome','new-qtd','new-custo','new-cat-custom'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
@@ -504,6 +522,11 @@ function initApp(config) {
   window.removerItem = function(catNome, nome) {
     var cat = CATS.find(function(c) { return c.cat === catNome; });
     if (cat) cat.items = cat.items.filter(function(i) { return i.nome !== nome; });
+    // persiste a deleção — chave = "cat||nome"
+    _DELETADOS[catNome + '||' + nome] = 1;
+    // limpa dados do item deletado
+    delete _EST[nome]; delete _PED[nome]; delete _CUSTO[nome];
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, del: _DELETADOS })); } catch(e) {}
     window.render();
   };
 
@@ -627,6 +650,8 @@ function initApp(config) {
 
     CATS.forEach(function(cat) {
       var items = cat.items.filter(function(i) {
+        // esconde itens deletados
+        if (_DELETADOS[cat.cat + '||' + i.nome]) return false;
         return !fl || i.nome.toLowerCase().includes(fl) || cat.cat.toLowerCase().includes(fl);
       });
       // ordena alfabeticamente
@@ -672,21 +697,21 @@ function initApp(config) {
             '<div class="inp-group">' +
               '<span class="inp-label">estoque</span>' +
               '<div class="inp-cell">' +
-                '<input class="est-inp" type="number" min="0" step="0.1" placeholder="—" value="' + estV + '" oninput="calcLinha(this);saveLocal_();">' +
+                '<input class="est-inp" type="number" min="0" step="0.1" placeholder="—" value="' + estV + '" data-nome="' + nn + '" oninput="atualizarEst(this);calcLinha(this);">' +
                 '<span class="unit-lbl">' + item.un + '</span>' +
               '</div>' +
             '</div>' +
             '<div class="inp-group">' +
               '<span class="inp-label">pedir</span>' +
               '<div class="inp-cell">' +
-                '<input class="ped-inp" type="number" min="0" step="0.5" placeholder="0" value="' + pedV + '" oninput="saveLocal_();">' +
+                '<input class="ped-inp" type="number" min="0" step="0.5" placeholder="0" value="' + pedV + '" data-nome="' + nn + '" oninput="atualizarPed(this);">' +
                 '<span class="unit-lbl">' + item.un + '</span>' +
               '</div>' +
             '</div>' +
             '<div class="inp-group">' +
               '<span class="inp-label blue">custo/un</span>' +
               '<div class="inp-cell">' +
-                '<input class="custo-inp" type="number" min="0" step="0.01" placeholder="—" value="' + custoV + '" oninput="calcLinha(this);saveLocal_();">' +
+                '<input class="custo-inp" type="number" min="0" step="0.01" placeholder="—" value="' + custoV + '" data-nome="' + nn + '" oninput="atualizarCusto(this);calcLinha(this);">' +
               '</div>' +
             '</div>' +
           '</div>' +
