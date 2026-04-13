@@ -417,27 +417,44 @@ function initApp(config) {
   var CATS = config.catalogo;
   var STORE_KEY = 'ped_' + restaurante.toLowerCase().replace(/[^a-z0-9]/g, '_');
 
+  // estado interno — fonte da verdade
+  var _EST = {}, _PED = {}, _CUSTO = {};
+
   function saveLocal() {
-    var data = {};
+    // sincroniza do DOM para os objetos internos antes de salvar
     document.querySelectorAll('.item-row').forEach(function(row) {
-      var nome = row.querySelector('.item-name');
-      if (!nome) return;
+      var nomeEl = row.querySelector('.item-name');
+      if (!nomeEl) return;
       var ins = row.querySelectorAll('input[type=number]');
       if (ins.length < 3) return;
-      var key = nome.textContent.trim();
-      data[key] = {
-        est:   ins[0].value,
-        ped:   ins[1].value,
-        custo: ins[2].value
-      };
+      var key = nomeEl.textContent.trim();
+      if (ins[0].value !== '') _EST[key]   = ins[0].value;
+      if (ins[1].value !== '') _PED[key]   = ins[1].value;
+      if (ins[2].value !== '') _CUSTO[key] = ins[2].value;
     });
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO })); } catch(e) {}
   }
 
   function loadLocal() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) { return {}; }
+    try {
+      var raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
+      // suporta formato antigo (chave=nome) e novo (est/ped/custo separados)
+      if (raw.est || raw.ped || raw.custo) {
+        _EST   = raw.est   || {};
+        _PED   = raw.ped   || {};
+        _CUSTO = raw.custo || {};
+      } else {
+        // formato legado: { "Atum": { est, ped, custo } }
+        Object.keys(raw).forEach(function(k) {
+          if (raw[k].est   !== undefined && raw[k].est   !== '') _EST[k]   = raw[k].est;
+          if (raw[k].ped   !== undefined && raw[k].ped   !== '') _PED[k]   = raw[k].ped;
+          if (raw[k].custo !== undefined && raw[k].custo !== '') _CUSTO[k] = raw[k].custo;
+        });
+      }
+    } catch(e) {}
   }
 
+  loadLocal(); // popula _EST/_PED/_CUSTO do localStorage
   window.saveLocal_ = saveLocal;
 
   window.switchTab = function(t) {
@@ -470,15 +487,11 @@ function initApp(config) {
     if (cat.items.find(function(i) { return i.nome === nome; })) { alert('Produto já existe.'); return; }
     cat.items.push({ nome: nome, un: un, custo: custoVal !== '' ? parseFloat(custoVal) : null });
 
-    // salva estoque inicial e custo no localStorage imediatamente
+    // salva estoque inicial e custo nos objetos internos
     var qtdInicial = document.getElementById('new-qtd') ? document.getElementById('new-qtd').value : '';
-    var saved = loadLocal();
-    saved[nome] = {
-      est:   qtdInicial !== '' ? qtdInicial : '',
-      ped:   '',
-      custo: custoVal !== '' ? custoVal : ''
-    };
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e) {}
+    if (qtdInicial !== '') _EST[nome]   = qtdInicial;
+    if (custoVal   !== '') _CUSTO[nome] = custoVal;
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO })); } catch(e) {}
 
     ['new-nome','new-qtd','new-custo','new-cat-custom'].forEach(function(id) {
       var el = document.getElementById(id); if (el) el.value = '';
@@ -569,9 +582,8 @@ function initApp(config) {
     });
     if (dup) { alert('Produto "' + novoNome + '" já existe em "' + dup + '".'); return; }
 
-    // recupera dados salvos do item antigo
-    var saved = loadLocal();
-    var sv = saved[nomeAntigo] || {};
+    // recupera dados do item antigo dos objetos internos
+    var sv = { est: _EST[nomeAntigo], ped: _PED[nomeAntigo], custo: _CUSTO[nomeAntigo] };
 
     // remove da categoria antiga
     var catAntiga = CATS.find(function(c){ return c.cat === catNomeAntigo; });
@@ -586,11 +598,12 @@ function initApp(config) {
       custo: novoCusto !== '' ? parseFloat(novoCusto) : null
     });
 
-    // migra dados salvos para o novo nome
+    // migra dados internos para o novo nome
     if (novoNome !== nomeAntigo) {
-      saved[novoNome] = sv;
-      delete saved[nomeAntigo];
-      try { localStorage.setItem(STORE_KEY, JSON.stringify(saved)); } catch(e){}
+      if (_EST[nomeAntigo]   !== undefined) { _EST[novoNome]   = _EST[nomeAntigo];   delete _EST[nomeAntigo]; }
+      if (_PED[nomeAntigo]   !== undefined) { _PED[novoNome]   = _PED[nomeAntigo];   delete _PED[nomeAntigo]; }
+      if (_CUSTO[nomeAntigo] !== undefined) { _CUSTO[novoNome] = _CUSTO[nomeAntigo]; delete _CUSTO[nomeAntigo]; }
+      try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO })); } catch(e){}
     }
 
     document.querySelectorAll('.edit-panel').forEach(function(p){ p.remove(); });
@@ -608,8 +621,8 @@ function initApp(config) {
 
   window.render = function() {
     var fl = (document.getElementById('search').value || '').toLowerCase();
-    var saved = loadLocal();
     var container = document.getElementById('lista');
+    if (!container) return;
     container.innerHTML = '';
 
     CATS.forEach(function(cat) {
@@ -637,12 +650,10 @@ function initApp(config) {
         '</div>';
 
       items.forEach(function(item) {
-        var sv = saved[item.nome] || {};
-        var estV   = sv.est   !== undefined ? sv.est   : '';
-        var pedV   = sv.ped   !== undefined ? sv.ped   : '';
-        // custo: prefere o salvo, senão usa o do catálogo
-        var custoV = sv.custo !== undefined && sv.custo !== ''
-          ? sv.custo
+        var estV   = _EST[item.nome]   !== undefined ? _EST[item.nome]   : '';
+        var pedV   = _PED[item.nome]   !== undefined ? _PED[item.nome]   : '';
+        var custoV = _CUSTO[item.nome] !== undefined && _CUSTO[item.nome] !== ''
+          ? _CUSTO[item.nome]
           : (item.custo !== null && item.custo !== undefined ? item.custo : '');
 
         // calcula total já na renderização
