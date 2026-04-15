@@ -14,7 +14,7 @@
     <span class="restaurant-badge">TKO · SP</span>
   </div>
   <h1>Tikô</h1>
-  <p>Controle de estoque &amp; pedidos</p>
+  <p>Controle de estoque &amp; pedidos &nbsp;<span id="sync-status" class="sync-badge"></span></p>
 </header>
 
 <div class="tabs">
@@ -60,28 +60,36 @@
       </div>
 
       <div class="conv-box">
-        <div class="conv-title">💱 Conversor de embalagem</div>
-        <div class="conv-hint">Informe quantas unidades comprou, o volume/peso de cada uma, e em qual unidade quer o custo.</div>
+        <div class="conv-title">💱 Conversor de embalagem → custo por L, KG ou UN</div>
+        <div class="conv-hint">Ex: Gin 750ml a R$89,90 → digite 750 ml → resultado: R$119,87/L &nbsp;|&nbsp; Frango cx 20kg a R$180 → digite 20 kg → R$9,00/KG</div>
 
         <div class="form-row form-3">
           <div class="field">
-            <label>Qtd de embalagens compradas</label>
-            <input type="number" id="conv-qtd-cx" min="0" step="1" placeholder="ex: 6" oninput="calcConv()"/>
-          </div>
-          <div class="field">
-            <label>Volume/peso de cada embalagem</label>
-            <input type="number" id="conv-vol-emb" min="0" step="0.001" placeholder="ex: 750" oninput="calcConv()"/>
+            <label>Qtd comprada (número)</label>
+            <input type="number" id="conv-qtd-cx" min="0" step="0.001" placeholder="ex: 750" oninput="calcConv()"/>
           </div>
           <div class="field">
             <label>Unidade da embalagem</label>
-            <input type="text" id="conv-un-emb" placeholder="L, ml, kg, g, un..." oninput="calcConv()"/>
+            <select id="conv-un-emb" onchange="calcConv()">
+              <option value="">— selecione —</option>
+              <option value="ml">ml → calcula por L</option>
+              <option value="L">L → calcula por L</option>
+              <option value="g">g → calcula por KG</option>
+              <option value="kg">kg → calcula por KG</option>
+              <option value="un">un → calcula por UN</option>
+              <option value="cx">cx → calcula por UN</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Preço pago (R$)</label>
+            <input type="number" id="conv-preco" min="0" step="0.01" placeholder="ex: 89,90" oninput="calcConv()"/>
           </div>
         </div>
 
         <div class="form-row form-3">
-          <div class="field">
-            <label>Preço total pago (R$)</label>
-            <input type="number" id="conv-preco" min="0" step="0.01" placeholder="ex: 89,90" oninput="calcConv()"/>
+          <div class="field" style="grid-column:1/3">
+            <label>Fórmula</label>
+            <div class="conv-formula-line" id="conv-formula" style="padding:8px 10px;background:var(--bg);border-radius:6px;min-height:36px;font-size:12px;color:var(--muted);font-family:var(--mono);">preencha os campos acima</div>
           </div>
 
           <div class="field conv-result-field">
@@ -143,7 +151,12 @@
 
 <div class="toast" id="toast">Mensagem copiada! Cole no WhatsApp.</div>
 
+<!-- Firebase SDK compat -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- App -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="firebase.js"></script>
 <script src="base.js"></script>
 <script>
   initApp({

@@ -195,73 +195,73 @@ function initVoz() {
 // Se embalagem vem em g  → converte para KG (÷1000)
 // Tudo mais trata como UN
 
-function _paraUnidadeBase(qtd, un) {
-  // retorna { valor, unidade } na unidade base (L, KG ou UN)
-  var u = (un || '').trim().toLowerCase();
-  if (u === 'l' || u === 'litro' || u === 'litros') return { valor: qtd, un: 'L' };
-  if (u === 'ml') return { valor: qtd / 1000, un: 'L' };
-  if (u === 'cl') return { valor: qtd / 100,  un: 'L' };
-  if (u === 'kg' || u === 'kilo' || u === 'kilos') return { valor: qtd, un: 'KG' };
-  if (u === 'g'  || u === 'gr' || u === 'grama' || u === 'gramas') return { valor: qtd / 1000, un: 'KG' };
-  // qualquer outra coisa: UN
-  return { valor: qtd, un: 'UN' };
-}
-
 function calcConv() {
   var g  = function(id){ var el=document.getElementById(id); return el?el.value.trim():''; };
   var gn = function(id){ return parseFloat(g(id))||0; };
 
-  var qtdCx  = gn('conv-qtd-cx')  || 1;
-  var volEmb = gn('conv-vol-emb');
-  var unEmb  = g('conv-un-emb');
-  var preco  = gn('conv-preco');
+  var qtd   = gn('conv-qtd-cx');   // quantidade comprada (ex: 750)
+  var un    = g('conv-un-emb');    // unidade (ex: ml)
+  var preco = gn('conv-preco');    // preço pago (ex: 89.90)
 
   var valorEl   = document.getElementById('conv-valor');
   var formulaEl = document.getElementById('conv-formula');
 
-  if (!preco || !volEmb) {
-    if (valorEl)   { valorEl.textContent='—'; valorEl.style.color=''; }
-    if (formulaEl) formulaEl.textContent='';
+  var vazio = function(msg) {
+    if (valorEl)   { valorEl.textContent = '—'; valorEl.style.color = ''; }
+    if (formulaEl) { formulaEl.textContent = msg || ''; formulaEl.style.color = ''; }
     window._convCusto = 0;
-    return;
+  };
+
+  if (!qtd || !un || !preco) { vazio('preencha os campos acima'); return; }
+
+  // Conversão para unidade base
+  // Regra: o que o usuário digita é a quantidade NA UNIDADE DA EMBALAGEM
+  // Ex: 750 ml → divide por 1000 → 0,75 L → R$89,90 / 0,75 = R$119,87/L
+  var uBase, fator, labelBase;
+  var u = un.toLowerCase();
+
+  if (u === 'ml') {
+    fator = 1000; uBase = 'L'; labelBase = 'L';
+  } else if (u === 'l') {
+    fator = 1; uBase = 'L'; labelBase = 'L';
+  } else if (u === 'g') {
+    fator = 1000; uBase = 'KG'; labelBase = 'KG';
+  } else if (u === 'kg') {
+    fator = 1; uBase = 'KG'; labelBase = 'KG';
+  } else {
+    fator = 1; uBase = 'UN'; labelBase = 'UN';
   }
 
-  // converte para unidade base
-  var base      = _paraUnidadeBase(volEmb, unEmb);
-  var totalBase = qtdCx * base.valor;  // total na unidade base
-  var usoLabel  = base.un;
+  // qtdBase = quantidade convertida para a unidade base
+  var qtdBase = qtd / fator;
+  if (qtdBase <= 0) { vazio('quantidade inválida'); return; }
 
-  if (totalBase <= 0) { window._convCusto = 0; return; }
+  var custo = preco / qtdBase;
+  window._convCusto = custo;
 
-  var custoPorUn = preco / totalBase;
-  window._convCusto = custoPorUn;
-
+  // Exibe resultado
   if (valorEl) {
-    valorEl.textContent = 'R$ ' + custoPorUn.toFixed(4) + ' / ' + usoLabel;
-    valorEl.style.color = '';
+    valorEl.textContent = 'R$ ' + custo.toFixed(4) + ' / ' + labelBase;
+    valorEl.style.color = '#1a6b3a';
   }
 
-  // monta fórmula passo a passo
-  var unEmbLabel = unEmb || 'un';
-  var linhas = [];
-
-  if (qtdCx > 1) {
-    linhas.push(qtdCx + ' × ' + volEmb + ' ' + unEmbLabel);
+  // Fórmula explicada passo a passo
+  var formula = '';
+  if (fator !== 1) {
+    // houve conversão de unidade
+    var qtdBaseStr = qtdBase.toFixed(6).replace(/\.?0+$/, '');
+    formula = qtd + ' ' + un + ' ÷ ' + fator + ' = ' + qtdBaseStr + ' ' + labelBase
+            + '   →   R$ ' + preco.toFixed(2) + ' ÷ ' + qtdBaseStr + ' ' + labelBase
+            + ' = R$ ' + custo.toFixed(4) + '/' + labelBase;
+  } else {
+    formula = 'R$ ' + preco.toFixed(2) + ' ÷ ' + qtd + ' ' + labelBase
+            + ' = R$ ' + custo.toFixed(4) + '/' + labelBase;
   }
 
-  // mostra conversão se mudou de unidade
-  var houvConv = (unEmbLabel.toLowerCase() !== usoLabel.toLowerCase());
-  var totalEmbBruto = qtdCx * volEmb;
-  if (houvConv) {
-    linhas.push(totalEmbBruto.toFixed(4).replace(/\.?0+$/,'') + ' ' + unEmbLabel
-      + ' → ' + totalBase.toFixed(6).replace(/\.?0+$/,'') + ' ' + usoLabel);
+  if (formulaEl) {
+    formulaEl.textContent = formula;
+    formulaEl.style.color = '#1a6b3a';
   }
-
-  linhas.push('R$ ' + preco.toFixed(2) + ' ÷ '
-    + totalBase.toFixed(6).replace(/\.?0+$/,'') + ' ' + usoLabel
-    + ' = R$ ' + custoPorUn.toFixed(4) + ' / ' + usoLabel);
-
-  if (formulaEl) formulaEl.textContent = linhas.join('  →  ');
 }
 
 function aplicarConv() {
@@ -522,39 +522,52 @@ function initApp(config) {
   var _EST = {}, _PED = {}, _CUSTO = {}, _MIN = {}, _DELETADOS = {}, _CATS_CUSTOM = [];
 
   function saveLocal() {
-    // persiste apenas os objetos internos — nunca lê do DOM
-    try { localStorage.setItem(STORE_KEY, JSON.stringify({ est: _EST, ped: _PED, custo: _CUSTO, min: _MIN, del: _DELETADOS, cats: _CATS_CUSTOM })); } catch(e) {}
+    var data = { est: _EST, ped: _PED, custo: _CUSTO, min: _MIN, del: _DELETADOS, cats: _CATS_CUSTOM };
+    // salva local
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); } catch(e) {}
+    // salva no Firebase (sincroniza com outros dispositivos)
+    if (typeof salvarFirebase === 'function') salvarFirebase(data);
+    // atualiza status
+    var el = document.getElementById('sync-status');
+    if (el) { el.textContent = 'salvando...'; el.className = 'sync-saving'; }
+  }
+
+  function aplicarDados(raw) {
+    if (!raw) return;
+    if (raw.est !== undefined || raw.ped !== undefined || raw.custo !== undefined || raw.cats !== undefined) {
+      _EST         = raw.est   || {};
+      _PED         = raw.ped   || {};
+      _CUSTO       = raw.custo || {};
+      _MIN         = raw.min   || {};
+      _DELETADOS   = raw.del   || {};
+      _CATS_CUSTOM = raw.cats  || [];
+      window._EST_         = _EST;
+      window._PED_         = _PED;
+      window._CUSTO_       = _CUSTO;
+      window._MIN_         = _MIN;
+      window._CATS_CUSTOM_ = _CATS_CUSTOM;
+      _CATS_CUSTOM.forEach(function(cc) {
+        var cat = CATS.find(function(c) { return c.cat === cc.cat; });
+        if (!cat) { cat = { cat: cc.cat, emoji: cc.emoji || '📦', items: [] }; CATS.push(cat); }
+        (cc.items || []).forEach(function(item) {
+          if (!cat.items.find(function(i) { return i.nome === item.nome; })) cat.items.push(item);
+        });
+      });
+    } else {
+      Object.keys(raw).forEach(function(k) {
+        if (raw[k] && typeof raw[k] === 'object' && !Array.isArray(raw[k])) {
+          if (raw[k].est   !== undefined && raw[k].est   !== '') _EST[k]   = raw[k].est;
+          if (raw[k].ped   !== undefined && raw[k].ped   !== '') _PED[k]   = raw[k].ped;
+          if (raw[k].custo !== undefined && raw[k].custo !== '') _CUSTO[k] = raw[k].custo;
+        }
+      });
+    }
   }
 
   function loadLocal() {
     try {
       var raw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}');
-      // suporta formato antigo (chave=nome) e novo (est/ped/custo separados)
-      if (raw.est || raw.ped || raw.custo) {
-        _EST        = raw.est   || {};
-        _PED        = raw.ped   || {};
-        _CUSTO      = raw.custo || {};
-        _DELETADOS  = raw.del   || {};
-        _MIN        = raw.min   || {};
-        _CATS_CUSTOM = raw.cats || [];
-        // restaura categorias e itens customizados no CATS
-        _CATS_CUSTOM.forEach(function(cc) {
-          var cat = CATS.find(function(c) { return c.cat === cc.cat; });
-          if (!cat) { cat = { cat: cc.cat, emoji: cc.emoji || '📦', items: [] }; CATS.push(cat); }
-          (cc.items || []).forEach(function(item) {
-            if (!cat.items.find(function(i) { return i.nome === item.nome; })) {
-              cat.items.push(item);
-            }
-          });
-        });
-      } else {
-        // formato legado: { "Atum": { est, ped, custo } } — sem del
-        Object.keys(raw).forEach(function(k) {
-          if (raw[k].est   !== undefined && raw[k].est   !== '') _EST[k]   = raw[k].est;
-          if (raw[k].ped   !== undefined && raw[k].ped   !== '') _PED[k]   = raw[k].ped;
-          if (raw[k].custo !== undefined && raw[k].custo !== '') _CUSTO[k] = raw[k].custo;
-        });
-      }
+      aplicarDados(raw);
     } catch(e) {}
   }
 
@@ -1039,4 +1052,22 @@ function initApp(config) {
   document.getElementById('search').addEventListener('input', window.render);
   window.render();
   initVoz();
+
+  // Inicializa Firebase — sincroniza em tempo real com outros dispositivos
+  if (typeof initFirebase === 'function') {
+    initFirebase(restaurante, function(dadosRemoto) {
+      // recebeu dados do Firebase — aplica se for mais recente
+      var localRaw = {};
+      try { localRaw = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) {}
+      var tsLocal  = localRaw._ts  || 0;
+      var tsRemoto = dadosRemoto._ts || 0;
+      if (tsRemoto >= tsLocal) {
+        aplicarDados(dadosRemoto);
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(dadosRemoto)); } catch(e) {}
+        window.render();
+        var el = document.getElementById('sync-status');
+        if (el) { el.textContent = '✓ sincronizado'; el.className = 'sync-ok'; }
+      }
+    });
+  }
 }

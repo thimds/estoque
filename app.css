@@ -460,3 +460,9 @@ body[data-accent="krozta"]    {--accent:#0e2040;}
 }
 .form-4x { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
 @media(max-width:560px){ .form-4x { grid-template-columns: 1fr 1fr; } }
+
+/* SYNC STATUS */
+.sync-badge { font-family: var(--mono); font-size: 10px; letter-spacing: .04em; }
+.sync-ok      { color: #1a6b3a; }
+.sync-saving  { color: #c07000; }
+.sync-err     { color: #c0392b; }
