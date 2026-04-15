@@ -423,6 +423,13 @@ function atualizarMin(inp) {
 function atualizarEst(inp) {
   var n = inp.dataset.nome;
   if (!n) return;
+  var anterior = window._EST_[n] || 0;
+  var novo     = inp.value === '' ? 0 : inp.value;
+  // registra movimentação se mudou
+  if (typeof registrarMovimentacao === 'function' && parseFloat(anterior) !== parseFloat(novo)) {
+    var un = inp.closest('.inp-cell') ? (inp.closest('.inp-cell').querySelector('.unit-lbl') || {}).textContent || '' : '';
+    registrarMovimentacao(n, un.trim(), anterior, novo);
+  }
   if (inp.value === '') delete window._EST_[n]; else window._EST_[n] = inp.value;
   window._save_();
 }
@@ -589,6 +596,7 @@ function initApp(config) {
     document.getElementById('tab-' + t).classList.add('active');
     if (t === 'adicionar') populateCatSelect();
     if (t === 'resumo') { renderResumo(); setTimeout(desenharGraficos, 100); }
+    if (t === 'historico') renderHistorico();
   };
 
   function populateCatSelect() {
@@ -1049,6 +1057,123 @@ function initApp(config) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+  window.renderHistorico = function() {
+    var cont = document.getElementById('tab-historico');
+    if (!cont) return;
+    cont.innerHTML = '<div class="hist-loading">Carregando histórico...</div>';
+
+    if (typeof carregarHistorico !== 'function') {
+      cont.innerHTML = '<p class="resumo-empty">Firebase não conectado. Histórico disponível após sincronização.</p>';
+      return;
+    }
+
+    var dias = parseInt((document.getElementById('hist-dias') || {}).value || 7);
+
+    carregarHistorico(dias, function(movs) {
+      if (!movs.length) {
+        cont.innerHTML = '<div class="hist-filtros">' + renderFiltros(dias) + '</div><p class="resumo-empty">Nenhuma movimentação nos últimos ' + dias + ' dias.</p>';
+        return;
+      }
+
+      // Agrupa por produto para o gráfico
+      var porProduto = {};
+      movs.forEach(function(m) {
+        if (!porProduto[m.produto]) porProduto[m.produto] = [];
+        porProduto[m.produto].push(m);
+      });
+
+      // Top produtos por número de movimentações
+      var topProd = Object.keys(porProduto).sort(function(a,b){
+        return porProduto[b].length - porProduto[a].length;
+      }).slice(0, 8);
+
+      // Monta HTML
+      var html = '<div class="hist-filtros">' + renderFiltros(dias) + '</div>';
+
+      // Cards resumo
+      var entradas = movs.filter(function(m){ return m.tipo === 'entrada'; }).length;
+      var saidas   = movs.filter(function(m){ return m.tipo === 'saida'; }).length;
+      html += '<div class="resumo-cards" style="margin-bottom:1rem;">' +
+        '<div class="resumo-card"><div class="resumo-label">Movimentações</div><div class="resumo-val">' + movs.length + '</div></div>' +
+        '<div class="resumo-card"><div class="resumo-label">Entradas / Saídas</div><div class="resumo-val"><span style="color:#1a6b3a">+' + entradas + '</span> / <span style="color:#c0392b">-' + saidas + '</span></div></div>' +
+      '</div>';
+
+      // Gráfico de barras por produto
+      html += '<div class="dashboard-section"><div class="dash-title">Movimentações por produto (últimos ' + dias + ' dias)</div><canvas id="chart-hist" height="220"></canvas></div>';
+
+      // Tabela
+      html += '<div class="dashboard-section"><div class="dash-title">Registro de movimentações</div>' +
+        '<div class="hist-table-wrap"><table class="hist-table">' +
+        '<thead><tr><th>Data</th><th>Hora</th><th>Produto</th><th>Anterior</th><th>Novo</th><th>Diferença</th></tr></thead><tbody>' +
+        movs.slice(0, 100).map(function(m) {
+          var cls = m.tipo === 'entrada' ? 'hist-entrada' : 'hist-saida';
+          var sinal = m.diff > 0 ? '+' : '';
+          return '<tr class="' + cls + '">' +
+            '<td>' + m.data + '</td>' +
+            '<td>' + m.hora + '</td>' +
+            '<td class="hist-prod">' + m.produto + '</td>' +
+            '<td>' + m.anterior + (m.unidade ? ' ' + m.unidade : '') + '</td>' +
+            '<td>' + m.novo + (m.unidade ? ' ' + m.unidade : '') + '</td>' +
+            '<td class="hist-diff">' + sinal + m.diff + (m.unidade ? ' ' + m.unidade : '') + '</td>' +
+          '</tr>';
+        }).join('') +
+        '</tbody></table></div></div>';
+
+      cont.innerHTML = html;
+
+      // Desenha gráfico
+      setTimeout(function() {
+        var ctx = document.getElementById('chart-hist');
+        if (ctx && window.Chart) {
+          if (ctx._ci) { try { ctx._ci.destroy(); } catch(e){} }
+          ctx._ci = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: topProd,
+              datasets: [
+                {
+                  label: 'Entradas',
+                  data: topProd.map(function(p){
+                    return porProduto[p].filter(function(m){ return m.tipo==='entrada'; }).length;
+                  }),
+                  backgroundColor: '#2D6A4F', borderRadius: 4
+                },
+                {
+                  label: 'Saídas',
+                  data: topProd.map(function(p){
+                    return porProduto[p].filter(function(m){ return m.tipo==='saida'; }).length;
+                  }),
+                  backgroundColor: '#c0392b', borderRadius: 4
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { position: 'top' } },
+              scales: { x: { stacked: false }, y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+          });
+        }
+      }, 80);
+    });
+  };
+
+  function renderFiltros(diasAtual) {
+    return '<div class="hist-filtro-row">' +
+      '<label class="hist-filtro-label">Período:</label>' +
+      [7, 14, 30].map(function(d) {
+        var ativo = d === diasAtual ? ' hist-btn-ativo' : '';
+        return '<button class="hist-btn' + ativo + '" onclick="alterarPeriodo(' + d + ')">' + d + ' dias</button>';
+      }).join('') +
+    '</div>';
+  }
+
+  window.alterarPeriodo = function(dias) {
+    var el = document.getElementById('hist-dias');
+    if (el) el.value = dias;
+    window.renderHistorico();
+  };
+
   document.getElementById('search').addEventListener('input', window.render);
   window.render();
   initVoz();

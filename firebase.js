@@ -72,3 +72,50 @@ function carregarFirebase(callback) {
     })
     .catch(function() { callback(null); });
 }
+
+// Registra uma movimentação no histórico
+function registrarMovimentacao(produto, unidade, valAnterior, valNovo) {
+  if (!_db || !_restauranteId) return;
+  var anterior = parseFloat(valAnterior) || 0;
+  var novo     = parseFloat(valNovo)     || 0;
+  if (anterior === novo) return; // sem mudança, não registra
+  var diff = novo - anterior;
+  var mov = {
+    produto:    produto,
+    unidade:    unidade || '',
+    anterior:   anterior,
+    novo:       novo,
+    diff:       Math.round(diff * 1000) / 1000,
+    tipo:       diff > 0 ? 'entrada' : 'saida',
+    ts:         Date.now(),
+    data:       new Date().toLocaleDateString('pt-BR'),
+    hora:       new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
+  };
+  _db.collection('historico')
+    .doc(_restauranteId)
+    .collection('movs')
+    .add(mov)
+    .catch(function(e){ console.warn('historico erro:', e.message); });
+}
+
+// Carrega histórico dos últimos N dias
+function carregarHistorico(dias, callback) {
+  if (!_db || !_restauranteId) { callback([]); return; }
+  var desde = Date.now() - (dias * 24 * 60 * 60 * 1000);
+  _db.collection('historico')
+    .doc(_restauranteId)
+    .collection('movs')
+    .where('ts', '>=', desde)
+    .orderBy('ts', 'desc')
+    .limit(500)
+    .get()
+    .then(function(snap) {
+      var movs = [];
+      snap.forEach(function(doc) { movs.push(doc.data()); });
+      callback(movs);
+    })
+    .catch(function(e) {
+      console.warn('carregar historico erro:', e.message);
+      callback([]);
+    });
+}

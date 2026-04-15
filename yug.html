@@ -21,6 +21,7 @@
   <div class="tab active" data-tab="pedido" onclick="switchTab('pedido')">Pedido</div>
   <div class="tab" data-tab="adicionar" onclick="switchTab('adicionar')">+ Produto</div>
   <div class="tab" data-tab="resumo" onclick="switchTab('resumo')">Resumo R$</div>
+  <div class="tab" data-tab="historico" onclick="switchTab('historico')">Histórico</div>
 </div>
 
 <div class="main">
@@ -136,6 +137,11 @@
       <div class="dash-title">Detalhamento por categoria</div>
       <div id="resumo-cats"></div>
     </div>
+  </div>
+
+  <div id="tab-historico" class="section">
+    <input type="hidden" id="hist-dias" value="7"/>
+    <div id="tab-historico"></div>
   </div>
 
 </div>
