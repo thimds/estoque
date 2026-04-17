@@ -158,61 +158,63 @@
 <div class="toast" id="toast">Mensagem copiada! Cole no WhatsApp.</div>
 
 
+
 <script>
 // Pré-carrega estoque inicial do Tikô — só na primeira vez
 (function() {
-  var KEY = 'ped_tik_';
+  var KEY = 'ped_tik_'; // 'Tikô'.toLowerCase().replace(/[^a-z0-9]/g,'_') = 'tik_' + prefixo 'ped_'
   var existing = null;
   try { existing = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){}
-  if (existing && (existing.est || existing.cats)) return; // já tem dados
+  // Só preenche se não tiver nenhum estoque salvo ainda
+  if (existing && existing.est && Object.keys(existing.est).length > 0) return;
 
-  // Converte g para kg onde necessário
   var EST = {
-    "Farinha de trigo":         2,
-    "Farinha panko":            4,
-    "Tempurá-ko":               3.5,
-    "Arroz tipo 1 nacional":    20,
-    "Arroz japonês":            35,
-    "Feijão preto":             9,
-    "Feijão carioca":           11,
-    "Açúcar refinado":          27,
-    "Açúcar mascavo":           7,
-    "Sal grosso":               7,
-    "Sal refinado":             4,
-    "Flor de sal":              2.1,
-    "Gergelim branco":          3,
-    "Togarashi":                0.3,
-    "Pimenta branca moída":     0.5,
-    "Ajinomoto":                1,
-    "Katsuobushi":              0.5,
-    "Harusame":                 0.5,
-    "Wakame":                   0.6,
-    "Kombu":                    0.15,
-    "Kare (curry japonês)":     1.265,
-    "Shitake seco":             1.5,
-    "Umeboshi":                 0.36,
-    "Gochujang":                1,
-    "Tobanjan":                 1.104,
-    "Wasabi em pó":             2.4,
-    "Alga nori":                400,
-    "Café":                     4.5,
-    "Espaguete funcionários":   10,
-    "Molho inglês":             16,
-    "Molho tonkatsu":           5,
-    "Molho hoisin":             3.64,
-    "Sriracha":                 2.4,
-    "Saquê seco":               15,
-    "Saquê mirin":              10,
-    "Óleo de algodão":          14.5,
-    "Papel toalha (bobina)":    8,
-    "Álcool":                   10
+    "Farinha de trigo":         "2",
+    "Farinha panko":            "4",
+    "Tempurá-ko":               "3.5",
+    "Arroz tipo 1 nacional":    "20",
+    "Arroz japonês":            "35",
+    "Feijão preto":             "9",
+    "Feijão carioca":           "11",
+    "Açúcar refinado":          "27",
+    "Açúcar mascavo":           "7",
+    "Sal grosso":               "7",
+    "Sal refinado":             "4",
+    "Flor de sal":              "2.1",
+    "Gergelim branco":          "3",
+    "Togarashi":                "0.3",
+    "Pimenta branca moída":     "0.5",
+    "Ajinomoto":                "1",
+    "Katsuobushi":              "0.5",
+    "Harusame":                 "0.5",
+    "Wakame":                   "0.6",
+    "Kombu":                    "0.15",
+    "Kare (curry japonês)":     "1.265",
+    "Shitake seco":             "1.5",
+    "Umeboshi":                 "0.36",
+    "Gochujang":                "1",
+    "Tobanjan":                 "1.104",
+    "Wasabi em pó":             "2.4",
+    "Alga nori":                "400",
+    "Café":                     "4.5",
+    "Espaguete funcionários":   "10",
+    "Molho inglês":             "16",
+    "Molho tonkatsu":           "5",
+    "Molho hoisin":             "3.64",
+    "Sriracha":                 "2.4",
+    "Saquê seco":               "15",
+    "Saquê mirin":              "10",
+    "Óleo de algodão":          "14.5",
+    "Papel toalha (bobina)":    "8",
+    "Álcool":                   "10"
   };
-  // Converte valores para string (padrão do sistema)
-  var estStr = {};
-  Object.keys(EST).forEach(function(k){ estStr[k] = String(EST[k]); });
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ est: estStr, ped: {}, custo: {}, min: {}, del: {}, cats: [] }));
-  } catch(e){}
+
+  var data = existing || { est: {}, ped: {}, custo: {}, min: {}, del: {}, cats: [] };
+  // Mescla EST sem apagar o que já existe
+  Object.keys(EST).forEach(function(k) {
+    if (!data.est[k]) data.est[k] = EST[k];
+  });
+  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e) {}
 })();
 </script>
 <!-- Firebase SDK compat -->
