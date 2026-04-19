@@ -3,19 +3,19 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Carregar estoque Koya88</title>
+<title>Carregar estoque Tikô</title>
 <style>
 body{font-family:monospace;padding:2rem;background:#f5f5f0;color:#1a1a1a;}
 h2{margin-bottom:.5rem;}
 p{color:#666;font-size:13px;margin-bottom:1.5rem;}
 #status{font-size:14px;line-height:2;}
 .ok{color:#1a6b3a;} .err{color:#c0392b;} .wait{color:#888;}
-button{padding:1rem 2rem;font-size:16px;background:#1a1a2e;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:1rem;display:block;}
+button{padding:1rem 2rem;font-size:16px;background:#1c3d2a;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:1rem;display:block;}
 button:disabled{opacity:.5;cursor:default;}
 </style>
 </head>
 <body>
-<h2>🍱 Carregar estoque — Koya88</h2>
+<h2>🍱 Carregar estoque — Tikô</h2>
 <p>Abre essa página uma vez, toca no botão e fecha. Os valores aparecem no app automaticamente.</p>
 <div id="status" class="wait">Pronto para gravar.</div>
 <button onclick="rodar()" id="btn">▶ Gravar no Firebase agora</button>
@@ -32,48 +32,47 @@ var CONFIG = {
   appId: "1:535152669134:web:0519e66c6e264b64f27b9f"
 };
 
-var DOC_ID = 'koya88';
+var DOC_ID = 'tik_'; // 'Tikô'.toLowerCase().replace(/[^a-z0-9]/g,'_')
 
 var EST = {
-  "Feijão carioca":       "4",
-  "Mostarda dijon":       "5",
-  "Sal refinado":         "7",
-  "Açúcar":               "3",
-  "Café funcionário":     "6",
-  "Pasta de alho negro":  "2",
-  "Farinha panko":        "5",
-  "Quinoa":               "1",
-  "Gergelim branco":      "1",
-  "Ketchup":              "1",
-  "Purê de batata em pó": "0.5",
-  "Nori":                 "12",
-  "Kombu":                "6",
-  "Arroz japonês":        "40",
-  "Sriracha":             "6",
-  "Hoisin":               "10",
-  "Melaço de cana":       "8",
-  "Azeite":               "1",
-  "Tonkatsu":             "3",
-  "Sake chef":            "5",
-  "Sake mirim":           "5",
-  "Vinagre de arroz":     "10",
-  "Leite integral":       "12",
-  "Manteiga":             "2.6",
-  "Óleo de soja":         "6",
-  "Edamame":              "4",
-  "Tofu frito":           "2",
-  "Abura age":            "3",
-  "Massago":              "3",
-  "Shokupan":             "10",
-  "Coxa e sobrecoxa":     "7",
-  "Lombo suíno":          "11",
-  "Barriga suína":        "10",
-  "Cupim":                "5",
-  "Lula":                 "1.6",
-  "Frango check mate":    "5",
-  "Frango karaage":       "11",
-  "Polvo":                "1.4",
-  "Takoyaki":             "11"
+  "Farinha de trigo":       "2",
+  "Farinha panko":          "4",
+  "Tempurá-ko":             "3.5",
+  "Arroz tipo 1 nacional":  "20",
+  "Arroz japonês":          "35",
+  "Feijão preto":           "9",
+  "Feijão carioca":         "11",
+  "Açúcar refinado":        "27",
+  "Açúcar mascavo":         "7",
+  "Sal grosso":             "7",
+  "Sal refinado":           "4",
+  "Flor de sal":            "2.1",
+  "Gergelim branco":        "3",
+  "Togarashi":              "0.3",
+  "Pimenta branca moída":   "0.5",
+  "Ajinomoto":              "1",
+  "Katsuobushi":            "0.5",
+  "Harusame":               "0.5",
+  "Wakame":                 "0.6",
+  "Kombu":                  "0.15",
+  "Kare (curry japonês)":   "1.265",
+  "Shitake seco":           "1.5",
+  "Umeboshi":               "0.36",
+  "Gochujang":              "1",
+  "Tobanjan":               "1.104",
+  "Wasabi em pó":           "2.4",
+  "Alga nori":              "400",
+  "Café":                   "4.5",
+  "Espaguete funcionários": "10",
+  "Molho inglês":           "16",
+  "Molho tonkatsu":         "5",
+  "Molho hoisin":           "3.64",
+  "Sriracha":               "2.4",
+  "Saquê seco":             "15",
+  "Saquê mirin":            "10",
+  "Óleo de algodão":        "14.5",
+  "Papel toalha (bobina)":  "8",
+  "Álcool":                 "10"
 };
 
 function log(msg, cls) {
@@ -91,12 +90,17 @@ function rodar() {
     db.collection('estoque').doc(DOC_ID).get().then(function(doc) {
       var atual = doc.exists ? doc.data() : {};
       var est   = atual.est   || {};
+      var ped   = atual.ped   || {};
+      var custo = atual.custo || {};
+      var min   = atual.min   || {};
+      var del   = atual.del   || {};
+      var cats  = atual.cats  || [];
       Object.keys(EST).forEach(function(k) { est[k] = EST[k]; });
       log('Gravando ' + Object.keys(EST).length + ' itens...');
-      return db.collection('estoque').doc(DOC_ID).set({ est:est, ped:atual.ped||{}, custo:atual.custo||{}, min:atual.min||{}, del:atual.del||{}, cats:atual.cats||[], _ts:Date.now() });
+      return db.collection('estoque').doc(DOC_ID).set({ est:est, ped:ped, custo:custo, min:min, del:del, cats:cats, _ts:Date.now() });
     }).then(function() {
       log('✓ ' + Object.keys(EST).length + ' itens gravados!', 'ok');
-      log('✓ Pode fechar e abrir o Koya88.', 'ok');
+      log('✓ Pode fechar e abrir o Tikô.', 'ok');
     }).catch(function(e) {
       log('✗ Erro: ' + e.message, 'err');
       document.getElementById('btn').disabled = false;

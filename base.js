@@ -876,7 +876,7 @@ function initApp(config) {
           '<div class="col-head">pedir</div>' +
           '<div class="col-head col-custo">custo/un</div>' +
           '<div class="col-head">total</div>' +
-          '<div class="col-head col-min">mínimo</div>' +
+          '<div class="col-head" style="color:#c07000">mínimo</div>' +
           '<div class="col-head" style="color:#c05000">saída</div>' +
           '<div></div>' +
         '</div>';
