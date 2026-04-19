@@ -494,3 +494,52 @@ body[data-accent="krozta"]    {--accent:#0e2040;}
 .hist-diff { font-weight:600; }
 .hist-entrada .hist-diff { color:#1a6b3a; }
 .hist-saida   .hist-diff { color:#c0392b; }
+
+/* SAÍDA DE ESTOQUE */
+.btn-saida {
+  background: none; border: 1px solid #e8c0a0; border-radius: 6px;
+  cursor: pointer; font-size: 16px; font-weight: 700;
+  color: #c05000; padding: 4px 7px; line-height: 1;
+  min-width: 26px; min-height: 26px;
+  transition: background .15s, color .15s;
+}
+.btn-saida:hover { background: #fff3ec; border-color: #c05000; }
+
+.saida-panel {
+  background: #fffaf5;
+  border: 1.5px solid #e8742a;
+  border-radius: 10px;
+  padding: 1rem;
+  margin: 4px 0 10px;
+  animation: slideDown .15s ease;
+}
+.saida-title {
+  font-size: 12px; color: #c05000;
+  text-transform: uppercase; letter-spacing: .07em;
+  font-weight: 500; margin-bottom: 10px;
+}
+.saida-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.saida-info { font-size: 13px; color: var(--muted); font-family: var(--mono); }
+.saida-inp {
+  flex: 1; font-size: 18px; font-family: var(--mono);
+  text-align: center; border: 1.5px solid #e8742a;
+  border-radius: 8px; padding: 10px 8px;
+  background: #fff; color: #c05000; outline: none;
+  min-height: 48px; -moz-appearance: textfield;
+}
+.saida-inp::-webkit-inner-spin-button { -webkit-appearance: none; }
+.saida-inp:focus { border-color: #c05000; }
+.saida-un { font-size: 13px; color: var(--muted); font-family: var(--mono); min-width: 24px; }
+.saida-actions { display: flex; gap: 8px; margin-top: 4px; }
+.saida-btn-ok {
+  flex: 1; padding: 10px; font-size: 14px; font-weight: 600;
+  background: #c05000; color: #fff; border: none;
+  border-radius: 8px; cursor: pointer; min-height: 44px;
+}
+.saida-btn-ok:hover { background: #e8742a; }
+.saida-btn-cancel {
+  padding: 10px 16px; font-size: 13px; background: none;
+  color: var(--muted); border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; min-height: 44px;
+}
+.saida-btn-cancel:hover { color: #c05000; border-color: #c05000; }

@@ -448,6 +448,83 @@ function atualizarCusto(inp) {
 
 
 // Renderiza os gráficos do dashboard — chamada após dados estarem prontos e canvas visível
+// --- SAÍDA DE ESTOQUE ---
+function abrirSaida(nome, un) {
+  // fecha qualquer painel aberto
+  document.querySelectorAll('.saida-panel').forEach(function(p){ p.remove(); });
+
+  // acha a row pelo nome
+  var rows = document.querySelectorAll('.item-row');
+  var targetRow = null;
+  rows.forEach(function(r){
+    var n = r.querySelector('.item-name');
+    if (n && n.textContent.trim() === nome) targetRow = r;
+  });
+  if (!targetRow) return;
+
+  var estAtual = parseFloat(window._EST_[nome]) || 0;
+
+  var panel = document.createElement('div');
+  panel.className = 'saida-panel';
+  panel.innerHTML =
+    '<div class="saida-title">Registrar saída — <strong>' + nome + '</strong></div>' +
+    '<div class="saida-row">' +
+      '<div class="saida-info">Estoque atual: <strong>' + estAtual + ' ' + un + '</strong></div>' +
+    '</div>' +
+    '<div class="saida-row">' +
+      '<input class="saida-inp" id="saida-qtd" type="number" min="0" step="0.1" placeholder="Quanto saiu?" autofocus/>' +
+      '<span class="saida-un">' + un + '</span>' +
+    '</div>' +
+    '<div class="saida-actions">' +
+      '<button class="saida-btn-ok" data-nome="' + nome.replace(/"/g,'&quot;') + '" data-un="' + un + '" onclick="confirmarSaidaBtn(this)">✓ Confirmar saída</button>' +
+      '<button class="saida-btn-cancel" onclick="fecharSaida()">Cancelar</button>' +
+    '</div>';
+
+  targetRow.after(panel);
+  setTimeout(function(){ var el=document.getElementById('saida-qtd'); if(el) el.focus(); }, 80);
+}
+
+function fecharSaida() {
+  document.querySelectorAll('.saida-panel').forEach(function(p){ p.remove(); });
+}
+
+function confirmarSaidaBtn(btn) {
+  var nome = btn.dataset.nome;
+  var un   = btn.dataset.un;
+  confirmarSaida(nome, un);
+}
+
+function confirmarSaida(nome, un) {
+  var inp = document.getElementById('saida-qtd');
+  if (!inp) return;
+  var qtd = parseFloat(inp.value);
+  if (!qtd || qtd <= 0) { inp.style.borderColor='#e8742a'; inp.focus(); return; }
+
+  var estAtual = parseFloat(window._EST_[nome]) || 0;
+  var novo = Math.max(0, Math.round((estAtual - qtd) * 1000) / 1000);
+
+  // Atualiza estado interno
+  window._EST_[nome] = String(novo);
+  window._save_();
+
+  // Registra no histórico
+  if (typeof registrarMovimentacao === 'function') {
+    registrarMovimentacao(nome, un, estAtual, novo);
+  }
+
+  // Fecha painel e re-renderiza
+  document.querySelectorAll('.saida-panel').forEach(function(p){ p.remove(); });
+  window.render();
+
+  // Toast de confirmação
+  var toast = document.getElementById('toast');
+  if (toast) {
+    toast.textContent = '− ' + qtd + ' ' + un + ' de ' + nome + ' registrado';
+    toast.classList.add('show');
+    setTimeout(function(){ toast.classList.remove('show'); }, 3000);
+  }
+}
+
 function desenharGraficos() {
   if (!window.Chart) {
     // Chart.js ainda não carregou — tenta de novo em 300ms
@@ -858,8 +935,9 @@ function initApp(config) {
             (alertClass ? '<span class="min-alert-dot" title="Abaixo do mínimo!">!</span>' : '') +
           '</div>' +
           '<div class="item-btns">' +
-          '<button class="btn-edit" onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
-          '<button class="btn-del"  onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
+          '<button class="btn-saida" onclick="abrirSaida(\'' + nn + '\',\'' + item.un + '\')" title="Registrar saída">−</button>' +
+          '<button class="btn-edit"  onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
+          '<button class="btn-del"   onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
         '</div>';
         b.appendChild(row);
       });

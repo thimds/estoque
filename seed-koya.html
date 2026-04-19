@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Carregar estoque Koya88</title>
+<style>
+body{font-family:monospace;padding:2rem;background:#f5f5f0;color:#1a1a1a;}
+h2{margin-bottom:.5rem;}
+p{color:#666;font-size:13px;margin-bottom:1.5rem;}
+#status{font-size:14px;line-height:2;}
+.ok{color:#1a6b3a;} .err{color:#c0392b;} .wait{color:#888;}
+button{padding:1rem 2rem;font-size:16px;background:#1a1a2e;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-top:1rem;display:block;}
+button:disabled{opacity:.5;cursor:default;}
+</style>
+</head>
+<body>
+<h2>🍱 Carregar estoque — Koya88</h2>
+<p>Abre essa página uma vez, toca no botão e fecha. Os valores aparecem no app automaticamente.</p>
+<div id="status" class="wait">Pronto para gravar.</div>
+<button onclick="rodar()" id="btn">▶ Gravar no Firebase agora</button>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+var CONFIG = {
+  apiKey: "AIzaSyCWF7FqVVeZaSRG4VIJQPks4f1RIm7WbvY",
+  authDomain: "pedidos-grupo-520ad.firebaseapp.com",
+  projectId: "pedidos-grupo-520ad",
+  storageBucket: "pedidos-grupo-520ad.firebasestorage.app",
+  messagingSenderId: "535152669134",
+  appId: "1:535152669134:web:0519e66c6e264b64f27b9f"
+};
+
+var DOC_ID = 'koya88';
+
+var EST = {
+  "Feijão carioca":       "4",
+  "Mostarda dijon":       "5",
+  "Sal refinado":         "7",
+  "Açúcar":               "3",
+  "Café funcionário":     "6",
+  "Pasta de alho negro":  "2",
+  "Farinha panko":        "5",
+  "Quinoa":               "1",
+  "Gergelim branco":      "1",
+  "Ketchup":              "1",
+  "Purê de batata em pó": "0.5",
+  "Nori":                 "12",
+  "Kombu":                "6",
+  "Arroz japonês":        "40",
+  "Sriracha":             "6",
+  "Hoisin":               "10",
+  "Melaço de cana":       "8",
+  "Azeite":               "1",
+  "Tonkatsu":             "3",
+  "Sake chef":            "5",
+  "Sake mirim":           "5",
+  "Vinagre de arroz":     "10",
+  "Leite integral":       "12",
+  "Manteiga":             "2.6",
+  "Óleo de soja":         "6",
+  "Edamame":              "4",
+  "Tofu frito":           "2",
+  "Abura age":            "3",
+  "Massago":              "3",
+  "Shokupan":             "10",
+  "Coxa e sobrecoxa":     "7",
+  "Lombo suíno":          "11",
+  "Barriga suína":        "10",
+  "Cupim":                "5",
+  "Lula":                 "1.6",
+  "Frango check mate":    "5",
+  "Frango karaage":       "11",
+  "Polvo":                "1.4",
+  "Takoyaki":             "11"
+};
+
+function log(msg, cls) {
+  document.getElementById('status').innerHTML += '<div class="'+(cls||'wait')+'">'+msg+'</div>';
+}
+
+function rodar() {
+  document.getElementById('btn').disabled = true;
+  document.getElementById('status').innerHTML = '';
+  log('Conectando ao Firebase...');
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(CONFIG);
+    var db = firebase.firestore();
+    log('Lendo dados atuais...');
+    db.collection('estoque').doc(DOC_ID).get().then(function(doc) {
+      var atual = doc.exists ? doc.data() : {};
+      var est   = atual.est   || {};
+      var ped   = atual.ped   || {};
+      var custo = atual.custo || {};
+      var min   = atual.min   || {};
+      var del   = atual.del   || {};
+      var cats  = atual.cats  || [];
+      Object.keys(EST).forEach(function(k) { est[k] = EST[k]; });
+      log('Gravando ' + Object.keys(EST).length + ' itens...');
+      return db.collection('estoque').doc(DOC_ID).set({ est:est, ped:ped, custo:custo, min:min, del:del, cats:cats, _ts:Date.now() });
+    }).then(function() {
+      log('✓ ' + Object.keys(EST).length + ' itens gravados!', 'ok');
+      log('✓ Pode fechar e abrir o Koya88.', 'ok');
+    }).catch(function(e) {
+      log('✗ Erro: ' + e.message, 'err');
+      document.getElementById('btn').disabled = false;
+    });
+  } catch(e) {
+    log('✗ Erro: ' + e.message, 'err');
+    document.getElementById('btn').disabled = false;
+  }
+}
+</script>
+</body>
+</html>
