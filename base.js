@@ -877,6 +877,7 @@ function initApp(config) {
           '<div class="col-head col-custo">custo/un</div>' +
           '<div class="col-head">total</div>' +
           '<div class="col-head col-min">mínimo</div>' +
+          '<div class="col-head" style="color:#c05000">saída</div>' +
           '<div></div>' +
         '</div>';
 
@@ -934,11 +935,14 @@ function initApp(config) {
             '<input class="min-inp" type="number" min="0" step="0.1" placeholder="—" value="' + minV + '" data-nome="' + nn + '" oninput="atualizarMin(this);">' +
             (alertClass ? '<span class="min-alert-dot" title="Abaixo do mínimo!">!</span>' : '') +
           '</div>' +
-          '<div class="item-btns">' +
           '<button class="btn-saida" onclick="abrirSaida(\'' + nn + '\',\'' + item.un + '\')" title="Registrar saída">−</button>' +
-          '<button class="btn-edit"  onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
-          '<button class="btn-del"   onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
-        '</div>';
+          '<div class="item-btns">' +
+          '<button class="btn-edit" onclick="editarItem(\'' + cn + '\',\'' + nn + '\')">✎</button>' +
+          '<button class="btn-del"  onclick="removerItem(\'' + cn + '\',\'' + nn + '\')">✕</button>' +
+        '</div>' +
+        '<button class="btn-saida-full" onclick="abrirSaida(\'' + nn + '\',\'' + item.un + '\')">' +
+          '− Registrar saída' +
+        '</button>';
         b.appendChild(row);
       });
 

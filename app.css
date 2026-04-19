@@ -197,7 +197,7 @@ body[data-accent="krozta"]    {--accent:#0e2040;}
 @media(min-width:560px){
   .col-heads{
     display:grid;
-    grid-template-columns:1fr 90px 90px 82px 90px 56px;
+    grid-template-columns:1fr 90px 90px 82px 90px 70px 80px;
     gap:6px;padding:3px 0 4px;
   }
   .col-head{font-size:10px;color:var(--muted);text-align:center;font-family:var(--mono);}
@@ -207,7 +207,7 @@ body[data-accent="krozta"]    {--accent:#0e2040;}
   .item-row{
     background:transparent;border:none;border-radius:0;padding:5px 0;
     margin-bottom:0;border-bottom:1px solid var(--border);
-    grid-template-rows:auto;grid-template-columns:1fr 90px 90px 82px 90px 56px;
+    grid-template-rows:auto;grid-template-columns:1fr 90px 90px 82px 90px 70px 80px;
     gap:6px;align-items:center;
   }
   .item-name{font-size:13px;font-weight:500;padding-right:0;}
@@ -543,3 +543,27 @@ body[data-accent="krozta"]    {--accent:#0e2040;}
   border-radius: 8px; cursor: pointer; min-height: 44px;
 }
 .saida-btn-cancel:hover { color: #c05000; border-color: #c05000; }
+
+/* BOTÃO SAÍDA — linha dedicada */
+.btn-saida-full {
+  width: 100%; margin-top: 6px;
+  padding: 8px; font-size: 12px; font-weight: 600;
+  font-family: var(--mono); letter-spacing: .05em;
+  background: none; border: 1px dashed #e8742a;
+  border-radius: 8px; color: #c05000; cursor: pointer;
+  transition: background .15s, border-style .15s;
+}
+.btn-saida-full:hover { background: #fff3ec; border-style: solid; }
+.btn-saida-full:active { background: #ffe8d6; }
+
+/* Desktop — esconde botão full, mostra btn-saida no grid */
+@media(min-width:560px){
+  .btn-saida-full { display: none !important; }
+  .btn-saida { display: inline-flex !important; align-items: center; justify-content: center; }
+  .item-btns { justify-content: flex-start; gap: 3px; }
+}
+/* Mobile — esconde btn-saida pequeno, mostra o full */
+@media(max-width:559px){
+  .btn-saida { display: none !important; }
+  .btn-saida-full { display: block; }
+}
